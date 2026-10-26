@@ -120,7 +120,11 @@ addopts = [
   "--cov-branch",
   "--cov-report=term-missing",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # Starlette 1.10 TestClient nudges toward httpx2; keep httpx (pinned, offline). Narrow on purpose.
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.coverage.run]
 branch = true

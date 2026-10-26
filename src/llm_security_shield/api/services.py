@@ -12,8 +12,14 @@ from presidio_anonymizer import AnonymizerEngine
 
 from llm_security_shield.api.settings import ApiSettings
 from llm_security_shield.core import Detector, SecurityShieldEngine, ShieldSettings, TokenVault
+from llm_security_shield.guardrails import CommandGuard, default_detectors
 from llm_security_shield.schemas import ToolPolicy
-from llm_security_shield.tools import PresidioAnonymizer, ToolPolicyGuard, build_analyzer
+from llm_security_shield.tools import (
+    PresidioAnonymizer,
+    ToolCallGuard,
+    ToolPolicyGuard,
+    build_analyzer,
+)
 
 _log = logging.getLogger("llm_security_shield.api")
 
@@ -113,10 +119,14 @@ class ShieldServices:
     ) -> None:
         self.settings = ShieldSettings() if settings is None else settings
         self.api_settings = ApiSettings() if api_settings is None else api_settings
-        self.engine = SecurityShieldEngine(self.settings, detectors)
-        self.guard = ToolPolicyGuard(
-            _load_policy(self.api_settings) if tool_policy is None else tool_policy,
-            sandbox_roots=self.api_settings.sandbox_roots,
+        self.engine = SecurityShieldEngine(
+            self.settings, default_detectors(self.settings) if detectors is None else detectors
+        )
+        self.guard: ToolCallGuard = CommandGuard(
+            ToolPolicyGuard(
+                _load_policy(self.api_settings) if tool_policy is None else tool_policy,
+                sandbox_roots=self.api_settings.sandbox_roots,
+            )
         )
         self.sessions = SessionVaults(
             ttl_seconds=self.settings.vault_ttl_seconds,
