@@ -14,8 +14,9 @@ Every commit in this repository, on every branch, MUST have **author and committ
   `Generated-by`, `Generated with`, `Assisted-by`, `AI-generated`, the 🤖 emoji, and any mention of
   Claude, Anthropic, ChatGPT, OpenAI, GPT-n, Copilot, Gemini or Cursor. The literal file name
   `CLAUDE.md` is the only exception.
-- Merges made in the GitHub web UI record `GitHub <noreply@github.com>` as committer and **will fail**
-  the audit. Rebase or merge locally, then push.
+- Every GitHub web-UI merge method (merge, squash and rebase) records `GitHub <noreply@github.com>`
+  as committer and **will fail** the audit. Land changes with the
+  [fast-forward workflow](#landing-changes-on-main) instead.
 
 ### How it is enforced
 
@@ -24,7 +25,9 @@ Every commit in this repository, on every branch, MUST have **author and committ
 | `pre-commit` | `.githooks/pre-commit` | author/committer identity; blocks `.cache/`, venvs, `.env*`, keys; ruff check and format on staged Python |
 | `commit-msg` | `.githooks/commit-msg` | forbidden trailers/terms; Conventional Commit subject; identity re-check (covers `--author` and `--amend`) |
 | `pre-push` | `.githooks/pre-push` | full audit of every commit being pushed |
-| CI | `scripts/audit-attribution.sh` via the GitHub Actions `attribution-audit` job (added in the `ci(github)` step) | server-side audit of the whole branch history |
+| CI | `scripts/audit-attribution.sh` via the GitHub Actions `attribution-audit` job | server-side audit of the whole branch history |
+| Branch protection | GitHub, `main` | all five CI checks required from GitHub Actions, branch up to date, linear history, applies to admins, no force-push or deletion |
+| Secret scanning | GitHub | push protection rejects pushes that contain recognized secrets |
 
 The policy (allowed identity and banned patterns) lives in one place: `.githooks/_policy.sh`.
 Audit any range by hand with `scripts/audit-attribution.sh [<rev-list args>]` (default: `HEAD`).
@@ -62,3 +65,41 @@ pytest                    # hermetic: sockets disabled, coverage ≥ 90% (branch
 - [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <summary>`, subject
   ≤ 100 characters. Types: `feat fix chore docs test build ci refactor perf style revert`.
 - One logical change per commit. Keep commits atomic and green.
+
+## Landing changes on `main`
+
+`main` only accepts a commit after the five CI checks (`attribution-audit`, `lint-and-typecheck`,
+`security-audit`, `test-hermetic`, `docker-build`) have passed on that exact commit. History must
+stay linear and the rules apply to admins too. Pull request reviews are deliberately not
+required: a required review forces a web-UI merge, and every web-UI merge rewrites the committer.
+Instead, open a pull request so CI runs, then fast-forward `main` locally to the green branch:
+
+```bash
+git switch main && git pull --ff-only
+git switch -c docs/my-change                 # one topic per branch
+git commit                                   # hooks check identity and message
+git push -u origin docs/my-change
+gh pr create --fill --base main              # CI runs on the pull request
+gh pr checks --watch --fail-fast             # wait until all five checks pass
+git switch main
+git merge --ff-only docs/my-change           # your commits, unchanged
+git push origin main                         # accepted: checks already passed on this commit
+git push origin --delete docs/my-change && git branch -d docs/my-change
+```
+
+GitHub marks the pull request as merged once its head commit reaches `main`.
+
+- **`main` moved meanwhile?** `--ff-only` refuses. Rebase the branch (`git rebase main`), push it
+  with `git push --force-with-lease`, wait for the checks again, then fast-forward.
+- **Never click Merge in the web UI.** GitHub would accept it once the checks pass, but the merge
+  commit is committed by GitHub, fails the audit on `main`, and cannot be removed without
+  lifting branch protection, because force-pushes to `main` are blocked.
+- **Never bypass push protection.** If secret scanning blocks a push, remove the secret from the
+  history and rotate it.
+
+### Dependency updates
+
+Dependabot alerts are enabled. Dependabot security-update pull requests are disabled on purpose:
+their commits are authored by `dependabot[bot]` and would fail the audit. Apply fixes yourself
+with `uv lock --upgrade-package <name>`, run the quality gates, and land the change through the
+workflow above.
