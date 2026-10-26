@@ -1,0 +1,74 @@
+# Production-like local stack for llm-security-shield.
+#
+#   docker compose up --build
+#
+# Settings: non-secret defaults below can be overridden from the shell or a local .env
+# (compose interpolation). Secrets such as SHIELD_API_API_KEY (>= 32 chars) belong in
+# .env only (gitignored; see .env.example), which is passed through when present.
+
+name: llm-security-shield
+
+services:
+  shield:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llm-security-shield:0.1.0
+    init: true
+    restart: unless-stopped
+
+    # Hardening: non-root, immutable root filesystem, no privileges, no capabilities.
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /app/.cache:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    # Loopback by default; set SHIELD_BIND=0.0.0.0 to expose on all interfaces.
+    ports:
+      - "${SHIELD_BIND:-127.0.0.1}:8000:8000"
+
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SHIELD_INJECTION_RISK_THRESHOLD: ${SHIELD_INJECTION_RISK_THRESHOLD:-0.7}
+      SHIELD_MAX_INPUT_CHARS: ${SHIELD_MAX_INPUT_CHARS:-32000}
+      SHIELD_VAULT_TTL_SECONDS: ${SHIELD_VAULT_TTL_SECONDS:-900}
+      SHIELD_VAULT_MAX_ENTRIES: ${SHIELD_VAULT_MAX_ENTRIES:-10000}
+      SHIELD_AUDIT_LOG_LEVEL: ${SHIELD_AUDIT_LOG_LEVEL:-INFO}
+      SHIELD_API_MAX_REQUEST_BYTES: ${SHIELD_API_MAX_REQUEST_BYTES:-1048576}
+      SHIELD_API_MAX_RESPONSE_BYTES: ${SHIELD_API_MAX_RESPONSE_BYTES:-4194304}
+      SHIELD_API_MAX_SESSIONS: ${SHIELD_API_MAX_SESSIONS:-1000}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+          pids: 256
+        reservations:
+          memory: 512m
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/v1/shield/health', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

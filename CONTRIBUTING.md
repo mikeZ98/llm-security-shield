@@ -44,9 +44,9 @@ uv sync               # downloads CPython 3.13 and creates .cache/venv
 
 `.envrc` sets `XDG_CACHE_HOME`, `UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `UV_PROJECT_ENVIRONMENT`,
 `RUFF_CACHE_DIR`, `MYPY_CACHE_DIR`, `COVERAGE_FILE`, `PYTHONPYCACHEPREFIX`, `TMPDIR`, `COLIMA_HOME`,
-`LIMA_HOME` and `DOCKER_HOST`. Tool config in `pyproject.toml` also points the pytest, ruff, mypy and
-coverage caches at `.cache/`, so they stay there even without direnv. Put personal overrides in
-`.envrc.local` (gitignored).
+`LIMA_HOME`, `DOCKER_HOST` and `DOCKER_CONFIG`. Tool config in `pyproject.toml` also points the
+pytest, ruff, mypy and coverage caches at `.cache/`, so they stay there even without direnv. Put
+personal overrides in `.envrc.local` (gitignored).
 
 ## Quality gates
 
