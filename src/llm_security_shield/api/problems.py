@@ -68,12 +68,19 @@ def render_problem(problem: ProblemResponse) -> bytes:
 
 
 def problem_response(problem: ProblemResponse) -> Response:
-    """Starlette response for ``problem``."""
+    """Starlette response for ``problem``.
+
+    Carries ``X-Request-ID`` itself: unhandled-error responses are produced outside the
+    shield middleware, which would otherwise add the header.
+    """
+    headers = dict(_NO_STORE)
+    if problem.error.request_id:
+        headers["x-request-id"] = problem.error.request_id
     return Response(
         render_problem(problem),
         status_code=problem.status,
         media_type=PROBLEM_MEDIA_TYPE,
-        headers=_NO_STORE,
+        headers=headers,
     )
 
 
