@@ -458,7 +458,7 @@ Trivy filesystem scan, the hermetic test suite and a Docker build with non-root,
 and offline smoke tests. Every action is pinned to a commit SHA.
 
 **Contribution policy.** Every commit must be authored and committed by the sole maintainer
-identity, with no co-author or tool-attribution trailers. Git hooks enforce it locally,
+identity; AI assistance is disclosed, not hidden. Git hooks enforce it locally,
 `scripts/audit-attribution.sh` audits history, and CI repeats the audit. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
