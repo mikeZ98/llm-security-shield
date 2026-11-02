@@ -108,7 +108,8 @@ sequenceDiagram
 ### Outbound: streaming PII redaction and the reversible TokenVault
 
 Responses on protected paths are rewritten before they reach the client. Presidio runs in a
-worker thread per unit of work so the event loop stays responsive.
+worker thread per unit of work so the event loop stays responsive. Detection is English-only
+by default (see [Known limitations](#known-limitations)).
 
 ```mermaid
 sequenceDiagram
@@ -464,6 +465,14 @@ identity; AI assistance is disclosed, not hidden. Git hooks enforce it locally,
 
 ## Known limitations
 
+- **English by default.** The prompt-injection and jailbreak rules in `core/sanitizer.py` are
+  English regular expressions, and PII detection runs Presidio with the pinned spaCy
+  `en_core_web_sm` model (`LANGUAGE = "en"` in `tools/presidio.py`). Pattern recognizers such
+  as e-mail addresses or card numbers still match in any language, but names and locations
+  rely on the English NER model and are largely missed in other languages. Polish support
+  means adding a pinned `pl_core_news_*` spaCy model, configuring Presidio for `"pl"` with
+  Polish-specific recognizers (PESEL, NIP, IBAN `PL…`), and extending the injection rules with
+  Polish phrasings ("zignoruj poprzednie instrukcje").
 - **Heuristic detection.** Novel paraphrases can pass and unusual benign text can be flagged.
   Tune `SHIELD_INJECTION_RISK_THRESHOLD` and `SHIELD_API_PROMPT_FIELDS` on your own traffic.
 - **Entities split across stream units.** Each SSE event or line is redacted on its own, so a
